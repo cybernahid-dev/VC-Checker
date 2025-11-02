@@ -1,0 +1,13 @@
+---
+
+## ⚙️ `.gitignore`
+
+```text
+__pycache__/
+*.pyc
+*.log
+venv/
+.env
+.vscode/
+.idea/
+*.json
