@@ -30,7 +30,7 @@ The developer is **not responsible** for any misuse.
 pkg install python git -y
 git clone https://github.com/cybernahid-dev/VC-Checker.git
 cd VC-Checker
-pip install -r requirements.txt
+pip install -r requirement.txt
 
 
 ## 🧠 Usage
