@@ -29,7 +29,7 @@ The developer is **not responsible** for any misuse.
 
 pkg install python git -y
 git clone https://github.com/cybernahid-dev/VC-Checker.git
-cd vcchacker
+cd vcchecker
 pip install -r requirement.txt
 
 
