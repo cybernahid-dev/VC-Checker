@@ -18,18 +18,6 @@ BANNER = r"""
 
                       VC CHECKER  v1.1  |  by cybernahid-dev
 """
-import shutil
-
-def show_banner():
-    cols = shutil.get_terminal_size((80, 20)).columns
-    # center each line
-    lines = BANNER.strip("\n").splitlines()
-    centered = "\n".join(line.center(cols) for line in lines)
-    # green color then reset
-    print("\033[92m" + centered + "\033[0m\n")
-
-# call it early in main
-show_banner()
 
 DISCLAIMER = """
 ⚠️ DISCLAIMER:
