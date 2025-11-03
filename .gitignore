@@ -1,13 +1,78 @@
----
+# ==========================================================
+# 🧠 VC Checker v1.1 — Safe Git Ignore Rules
+# Author: cybernahid-dev
+# License: MIT
+# ==========================================================
 
-## ⚙️ `.gitignore`
-
-```text
+# --- Python Specific ---
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
 *.log
+*.tmp
+*.bak
+*.swp
+
+# --- Virtual Environments ---
+env/
 venv/
-.env
+.venv/
+ENV/
+ENV*/
+venv*/
+
+# --- OS Generated Files ---
+.DS_Store
+Thumbs.db
+ehthumbs.db
+desktop.ini
+
+# --- IDE & Editor Configs ---
 .vscode/
 .idea/
-*.json
+*.sublime-workspace
+*.sublime-project
+
+# --- Logs & Backups ---
+logs/
+*.log
+*.bak
+*.old
+*.orig
+
+# --- Upload & Auto-sync Scripts ---
+upload.sh
+auto_upload.sh
+watchdog_logs/
+inotify.log
+
+# --- User Files ---
+test/
+local_scan/
+*.zip
+*.tar
+*.gz
+
+# --- Cache Directories ---
+__cache__/
+.cache/
+temp/
+tmp/
+build/
+dist/
+*.egg-info/
+
+# --- Security ---
+config.json
+*.key
+*.token
+*.secret
+*.pem
+
+# ==========================================================
+# 🧾 Notes:
+# 1. Prevents sensitive or local test data from upload.
+# 2. Keeps your repository clean and professional.
+# 3. Fully GitHub-safe — no false flag or banned patterns.
+# ==========================================================
