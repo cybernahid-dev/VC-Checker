@@ -1,145 +1,187 @@
 #!/usr/bin/env python3
-"""
-VC Checker v1.0 — Offline Heuristic Malware Detection Tool
-Developer: @cybernahid-dev
-License: MIT
-Description:
-    - Scans local files for suspicious indicators.
-    - Uses entropy, hash, extension, and pattern analysis.
-    - Works fully offline (no external API calls).
-    - Educational purpose only.
-"""
+# VC Checker v1.1 (Auto Path Detect + Real-time Scan)
+# Author: cybernahid-dev | 2025
+# Educational local scanner
 
-import os
-import hashlib
-import math
-from collections import Counter
-import json
-import click
-from tqdm import tqdm
+import os, re, sys, time
 from datetime import datetime
 
-# === Config ===
-THREAT_DB = os.path.expanduser("~/.vc_checker/threatdb.json")
-os.makedirs(os.path.dirname(THREAT_DB), exist_ok=True)
+BANNER = r"""
+ /$$    /$$  /$$$$$$         /$$$$$$  /$$   /$$ /$$$$$$$$  /$$$$$$  /$$   /$$ /$$$$$$$$ /$$$$$$$       
+| $$   | $$ /$$__  $$       /$$__  $$| $$  | $$| $$_____/ /$$__  $$| $$  /$$/| $$_____/| $$__  $$      
+| $$   | $$| $$  \__/      | $$  \__/| $$  | $$| $$      | $$  \__/| $$ /$$/ | $$      | $$  \ $$      
+|  $$ / $$/| $$            | $$      | $$$$$$$$| $$$$$   | $$      | $$$$$/  | $$$$$   | $$$$$$$/      
+ \  $$ $$/ | $$            | $$      | $$__  $$| $$__/   | $$      | $$  $$  | $$__/   | $$__  $$      
+  \  $$$/  | $$    $$      | $$    $$| $$  | $$| $$      | $$    $$| $$\  $$ | $$      | $$  \ $$      
+   \  $/   |  $$$$$$/      |  $$$$$$/| $$  | $$| $$$$$$$$|  $$$$$$/| $$ \  $$| $$$$$$$$| $$  | $$      
+    \_/     \______/        \______/ |__/  |__/|________/ \______/ |__/  \__/|________/|__/  |__/      
 
-# === Utility Functions ===
-def sha256_of_file(path, block_size=65536):
-    h = hashlib.sha256()
-    with open(path, "rb") as f:
-        for block in iter(lambda: f.read(block_size), b""):
-            h.update(block)
-    return h.hexdigest()
+                      VC CHECKER  v1.1  |  by cybernahid-dev
+"""
+import shutil
 
-def calc_entropy(data):
-    if not data:
-        return 0.0
-    freq = Counter(data)
-    probs = [v / len(data) for v in freq.values()]
-    return -sum(p * math.log2(p) for p in probs)
+def show_banner():
+    cols = shutil.get_terminal_size((80, 20)).columns
+    # center each line
+    lines = BANNER.strip("\n").splitlines()
+    centered = "\n".join(line.center(cols) for line in lines)
+    # green color then reset
+    print("\033[92m" + centered + "\033[0m\n")
 
-def suspicious_patterns(data):
-    import re
-    text = data.decode("latin-1", errors="ignore").lower()
-    patterns = [
-        (r"powershell", "powershell-script"),
-        (r"cmd\.exe", "cmd-execution"),
-        (r"eval\(", "eval-function"),
-        (r"base64", "base64-code"),
-        (r"socket", "network-socket"),
-        (r"exec\(", "exec-call"),
-    ]
+# call it early in main
+show_banner()
+
+DISCLAIMER = """
+⚠️ DISCLAIMER:
+This tool is for cybersecurity learning purposes only.
+It performs local text-based pattern scans (no system modification).
+No scanner can guarantee 100% detection accuracy.
+Always verify with multiple trusted tools.
+"""
+
+DEFAULT_SIGNATURES = [
+    r"eval\s*\(",
+    r"base64_decode\s*\(",
+    r"exec\s*\(",
+    r"subprocess\.Popen",
+    r"import\s+os",
+    r"(?i)password\s*[:=]",
+    r"(?i)api[_-]?key",
+    r"(?i)trojan",
+    r"(?i)malware",
+]
+
+SEARCH_ROOTS = [
+    ".",  # current directory
+    os.path.expanduser("~"),
+    "/sdcard",
+    "/storage",
+    "/data/data/com.termux/files/home"
+]
+
+def load_signatures():
+    sigs = []
+    if os.path.exists("signatures.txt"):
+        with open("signatures.txt", "r", encoding="utf-8", errors="ignore") as fh:
+            for ln in fh:
+                ln = ln.strip()
+                if ln and not ln.startswith("#"):
+                    try:
+                        sigs.append(re.compile(ln))
+                    except re.error:
+                        pass
+    if not sigs:
+        sigs = [re.compile(x) for x in DEFAULT_SIGNATURES]
+    return sigs
+
+def read_chunk(path, limit_bytes=1024*1024):
+    try:
+        with open(path, "rb") as f:
+            data = f.read(limit_bytes)
+        return data.decode("utf-8", errors="ignore")
+    except Exception:
+        return ""
+
+def scan_file(path, signatures):
+    text = read_chunk(path)
+    matches = []
+    for s in signatures:
+        if s.search(text):
+            matches.append(s.pattern)
+    return matches
+
+def scan_directory(target, signatures):
+    total = 0
+    infected = []
+    start = time.time()
+    print(f"\n🔍 Scanning: {target}\n{'-'*60}")
+    for root, dirs, files in os.walk(target):
+        for fname in files:
+            total += 1
+            path = os.path.join(root, fname)
+            m = scan_file(path, signatures)
+            if m:
+                infected.append((path, m))
+                print(f"⚠️  [{total}] Suspicious → {path}")
+                for pat in m:
+                    print(f"    → Matched: {pat}")
+            else:
+                print(f"✅ [{total}] {fname}")
+    duration = round(time.time() - start, 2)
+    print("\n" + "="*60)
+    print(f"📁 Files Scanned : {total}")
+    print(f"🚨 Threats Found : {len(infected)}")
+    print(f"⏱️  Duration      : {duration}s")
+    print("="*60)
+    if infected:
+        print("\n⚠️ Infected files:")
+        for p, _ in infected:
+            print(f" - {p}")
+    else:
+        print("\n✅ No threats detected!")
+    print("\nScan complete.\n")
+
+def find_paths_by_name(name, roots=SEARCH_ROOTS, max_results=10):
     found = []
-    for pat, tag in patterns:
-        if re.search(pat, text):
-            found.append(tag)
+    name = name.lower()
+    for root in roots:
+        if not os.path.exists(root):
+            continue
+        for dirpath, dirnames, _ in os.walk(root):
+            base = os.path.basename(dirpath).lower()
+            if name in base:
+                found.append(dirpath)
+                if len(found) >= max_results:
+                    return found
     return found
 
-def load_threat_db():
-    if not os.path.exists(THREAT_DB):
-        return {"bad_hashes": []}
-    with open(THREAT_DB, "r") as f:
-        return json.load(f)
+def resolve_target(name):
+    if os.path.exists(name):
+        return os.path.abspath(name)
+    print(f"\n🔎 Searching for '{name}' ...")
+    matches = find_paths_by_name(name)
+    if not matches:
+        return None
+    if len(matches) == 1:
+        return matches[0]
+    print("\nMultiple matches found:")
+    for i, p in enumerate(matches, 1):
+        print(f"[{i}] {p}")
+    ch = input("Select (1-default): ").strip()
+    if not ch:
+        return matches[0]
+    if ch.isdigit() and 1 <= int(ch) <= len(matches):
+        return matches[int(ch) - 1]
+    return matches[0]
 
-def save_threat_db(db):
-    os.makedirs(os.path.dirname(THREAT_DB), exist_ok=True)
-    with open(THREAT_DB, "w") as f:
-        json.dump(db, f, indent=2)
+def main():
+    os.system("clear")
+    print(BANNER)
+    print(DISCLAIMER)
+    sigs = load_signatures()
 
-# === Core Scan ===
-def scan_file(path, threat_db):
-    result = {"path": path, "size": None, "sha256": None, "entropy": None, "flags": [], "score": 0}
-    try:
-        size = os.path.getsize(path)
-        result["size"] = size
-        result["sha256"] = sha256_of_file(path)
-        with open(path, "rb") as f:
-            data = f.read(8192)
-        ent = calc_entropy(data)
-        result["entropy"] = round(ent, 2)
-
-        if result["sha256"] in threat_db.get("bad_hashes", []):
-            result["flags"].append("known-malware")
-            result["score"] += 100
-
-        ext = os.path.splitext(path)[1].lower()
-        if ext in [".exe", ".dll", ".bat", ".vbs", ".ps1", ".js", ".jar"]:
-            result["flags"].append("suspicious-extension")
-            result["score"] += 25
-
-        if ent > 7.5:
-            result["flags"].append("high-entropy")
-            result["score"] += 40
-
-        if size > 50 * 1024 * 1024:
-            result["flags"].append("large-file")
-            result["score"] += 5
-
-        pats = suspicious_patterns(data)
-        if pats:
-            result["flags"].extend(pats)
-            result["score"] += len(pats) * 10
-
-    except Exception as e:
-        result["flags"].append(f"error:{e}")
-
-    return result
-
-# === CLI ===
-@click.command()
-@click.argument("target", type=click.Path(exists=True))
-@click.option("--report", "-r", help="Save report as JSON file")
-def main(target, report):
-    """Scan files or folders for suspicious activity (offline)."""
-    threat_db = load_threat_db()
-    results = []
-    files = []
-
-    if os.path.isdir(target):
-        for root, dirs, fs in os.walk(target):
-            for f in fs:
-                files.append(os.path.join(root, f))
+    if len(sys.argv) > 1:
+        target_input = " ".join(sys.argv[1:]).strip()
     else:
-        files.append(target)
+        target_input = input("\nEnter folder or file name/path to scan: ").strip()
 
-    print(f"🔍 Scanning {len(files)} files...\n")
-    for f in tqdm(files, desc="Scanning", unit="file"):
-        results.append(scan_file(f, threat_db))
+    if not target_input:
+        print("❌ No input provided.")
+        sys.exit(1)
 
-    # Summary
-    print("\n=== SCAN SUMMARY ===")
-    suspicious = [r for r in results if r["score"] >= 40]
-    print(f"Total Files: {len(results)}")
-    print(f"Suspicious: {len(suspicious)}")
-    print(f"Report Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    target = resolve_target(target_input)
+    if not target:
+        print(f"❌ No matching directories found for '{target_input}'")
+        print("Tip: Try giving a full or existing folder name.")
+        sys.exit(1)
 
-    if report:
-        with open(report, "w") as rf:
-            json.dump(results, rf, indent=2)
-        print(f"📄 Report saved: {report}")
-    else:
-        for r in suspicious[:10]:
-            print(f"⚠️ {r['path']}  → Score: {r['score']}  Flags: {r['flags']}")
+    print(f"\n✅ Selected path: {target}")
+    confirm = input("Proceed to scan? (Y/n): ").strip().lower()
+    if confirm == "n":
+        print("Cancelled.")
+        sys.exit(0)
+
+    scan_directory(target, sigs)
 
 if __name__ == "__main__":
     main()
